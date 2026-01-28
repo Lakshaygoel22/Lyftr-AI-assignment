@@ -1,84 +1,58 @@
-# Lyftr AI Backend Assignment
+# Backend Assignment - Lyftr AI
 
-**Submitted by: Lakshay Goel**
+**Submitted by:** Lakshay Goel (lakshayworks22@gmail.com)
 
-Hi there! 👋 This is my submission for the Lyftr AI Backend assignment. I've built a robust, production-ready webhook ingestion service that handles high-throughput message processing with a focus on reliability and scalability.
+Here is my solution for the webhook ingestion service. I focused on building something that is clean, handles concurrency well, and is easy to run.
 
-## 🚀 Project Overview
+## Overview
 
-This project implements a FastAPI-based service designed to ingest, process, and store WhatsApp-like messages via webhooks. I wanted to go beyond just "making it work" and focused on building a system that would actually stand up in a production environment.
+The service listens for webhook events (like WhatsApp messages), verifies them, and stores them in a database. I used **FastAPI** because of its async support, which is perfect for this kind of I/O-heavy workload.
 
-### Key Highlights
-*   **Asynchronous Architecture**: Built entirely on `asyncio` with FastAPI and `aiosqlite` to ensure non-blocking I/O and high concurrency.
-*   **Idempotency**: Implemented strict idempotency checks to handle duplicate webhook deliveries gracefully using `X-Signature` verification.
-*   **Observability**: Integrated Prometheus metrics for real-time monitoring of request throughput, latency, and webhook outcomes.
-*   **Containerization**: Fully Dockerized setup with `docker-compose` for easy orchestration.
-*   **Robust Testing**: Comprehensive test suite using `pytest` covering edge cases, signature validation, and database operations.
+Top features:
+*   **Async/Await:** Everything from the API handlers to the database queries is async to keep the main thread free.
+*   **Signature Verification:** Added a middleware to validate the `X-Signature` header so we don't process garbage requests.
+*   **Idempotency:** I'm checking msg IDs before inserting to handle duplicate webhooks (which happens a lot in real life).
+*   **Dockerized:** Just run `make up` and it works.
 
-## 🛠️ Tech Stack
+## Tech Choices
 
-I chose this stack to balance performance, developer experience, and maintainability:
+*   **FastAPI & Python 3.11** - Fast and modern.
+*   **SQLite (aiosqlite)** - It's simple for a standalone assignment. switching to Postgres is just a config change away.
+*   **Pydantic** - For validating the incoming JSON payloads.
+*   **Prometheus** - I added some basic metrics (`/metrics`) to track how many requests we're getting.
 
--   **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.11) - for its speed and native async support.
--   **Database**: [SQLite](https://www.sqlite.org/index.html) (via `SQLAlchemy` + `aiosqlite`) - lightweight and efficient for this scope, but easily swappable for PostgreSQL.
--   **Validation**: [Pydantic v2](https://docs.pydantic.dev/) - for strict type checking and schema validation.
--   **Infrastructure**: Docker & Docker Compose.
--   **Tools**: `pytest` (testing), `black` (formatting), `isort` (import sorting).
+## How to Run
 
-## 🏃‍♂️ Quick Start
+1.  **Start it up:**
+    ```bash
+    make up
+    ```
+    This spins up the container. API will be at `http://localhost:8000`.
 
-I've included a `Makefile` to simplify common operations.
+2.  **Check logs:**
+    ```bash
+    make logs
+    ```
 
-### Prerequisites
--   Docker & Docker Compose
+3.  **Run Tests:**
+    I wrote some tests to cover the main logic (signature checks, DB storage).
+    ```bash
+    make test
+    ```
 
-### Running the Service
-To spin up the service in detached mode:
-```bash
-make up
-```
-The API will be available at `http://localhost:8000`.
+4.  **Stop:**
+    ```bash
+    make down
+    ```
 
-### Viewing Logs
-To tail the application logs:
-```bash
-make logs
-```
+## API Endpoints
 
-### Running Tests
-I've written a suite of tests to verify the logic. Run them inside the container:
-```bash
-make test
-```
+*   `POST /webhook` - Send messages here. Needs the correct signature.
+*   `GET /messages` - See what's been saved.
+*   `GET /stats` - Simple count of messages.
+*   `GET /health/live` & `/health/ready` - Standard health checks.
 
-### Stopping the Service
-```bash
-make down
-```
+## Notes
 
-## 🔌 API Reference
-
-Here are the main endpoints I've implemented:
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/webhook` | Ingests messages. verifiable via `X-Signature` header. |
-| `GET` | `/messages` | Retrieves stored messages with pagination and filtering. |
-| `GET` | `/stats` | Provides basic analytics on message volume. |
-| `GET` | `/metrics` | Prometheus metrics endpoint. |
-| `GET` | `/health/live` | Liveness probe for k8s/orchestrators. |
-| `GET` | `/health/ready` | Readiness probe. |
-
-## 💡 Design Decisions
-
-**Why SQLite?**
-For this assignment, I used SQLite to keep the setup self-contained without needing a separate DB container. However, I used SQLAlchemy as an ORM, so switching to PostgreSQL would only require changing the connection string in `config.py`.
-
-**Why Async?**
-Webhook ingestion is I/O bound. Using Python's `async` capabilities allows the service to handle thousands of concurrent connections efficiently compared to blocking synchronous workers.
-
-**Folder Structure**
- I organized the code into a modular structure (`app/`, `tests/`) to keep concerns separated (routes, models, storage) making it easier to navigate and scale.
-
----
-*Built with ❤️ by Lakshay Goel*
+- The default webhook secret is set in the `docker-compose.yml`. In a real prod env, I'd inject this via a secure store.
+- I've included a `demo_client.py` script if you want to test sending a signed request manually.
